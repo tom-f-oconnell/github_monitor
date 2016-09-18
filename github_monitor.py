@@ -9,14 +9,14 @@ import json
 def init_feed():
     fg = FeedGenerator()
 
-    fg.id('http://eftm.duckdns.org/rss/')
-    fg.title('Test feed')
-    fg.author({'name': '', 'email': 'yeemail@yup.hom'} )
+    #fg.id('http://eftm.duckdns.org/rss/')
+    fg.title('Github Organization Monitor')
+    fg.author({'name': "Tom O'Connell", 'email': ''} )
     # not sure what 'alternate' does?
     fg.link(href='http://eftm.duckdns.org', rel='alternate')
     fg.link( href='http://eftm.duckdns.org/rss', rel='self')
     fg.language('en')
-    fg.description('Null')
+    fg.description('Github Organization Monitor')
 
     return fg
 
@@ -25,8 +25,10 @@ def add_general_event(event, feed):
 
     fe = feed.add_entry()
     fe.id(event['created_at'])
-    fe.title(event['type'])
-    desc = event['actor']['login'] + ' ' + event['created_at']
+
+    info = event['type'] + ' by' + event['actor']['login'] + ' in ' + event['repo']['name']
+    fe.title(info)
+    desc = info + ' at ' + event['created_at']
     fe.description(desc)
     #fe.enclosure('', 0, '')
 
@@ -36,7 +38,7 @@ def add_comment_event(event, feed):
     fe = feed.add_entry()
     fe.id(event['created_at'])
 
-    prefix = event['actor']['login'] + ' at ' + event['created_at']
+    prefix = event['actor']['login'] + ' at ' + event['created_at'] + ' in ' + event['repo']['name']
     fe.title(prefix)
     desc = prefix + ': ' + event['payload']['comment']['body']
 
@@ -75,14 +77,9 @@ class MyStreamHandler(socketserver.StreamRequestHandler):
     client.
     """
 
-    # TODO can this class get info from its TCPServer?
-
     def handle(self):
-        #fg = init_feed()
         fg = self.server.feed
 
-        #json2entries(
-        
         # get the rss feed as a string
         rssfeed = fg.rss_str(pretty=True)
         
@@ -108,10 +105,10 @@ if __name__ == "__main__":
         with open('./data/' + hsh, 'r') as fp:
             data[hash2url[hsh]] = json.load(fp)
     
-    host = True
+    host = False
     
     if host:
-        HOST, PORT = "localhost", 9997
+        HOST, PORT = "localhost", 9996
         
         # Create the server, binding to localhost on port 9999
         server = MyTCPServer((HOST, PORT), MyStreamHandler, data)
@@ -121,5 +118,13 @@ if __name__ == "__main__":
         server.serve_forever()
     else:
         # Otherwise output to a file, which can be uploaded to hosting separately
-        output = './rss'
+        output = './rss/gitmon'
+
+        feed = init_feed()
+
+        # populate it
+        json2entries(data, feed)
         
+        # will overwrite. b for binary mode.
+        with open(output, 'wb') as fp:
+            fp.write(feed.rss_str(pretty=True))
